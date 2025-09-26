@@ -68,6 +68,8 @@ def patch_env_and_github(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "fake-token")
     # Patch Github class
     # TODO
+    import src.repo_miner as rm
+    monkeypatch.setattr(rm, "Github", lambda *a, **k: gh_instance, raising=True)
 
 # Helper global placeholder
 gh_instance = DummyGithub("fake-token")
@@ -90,9 +92,10 @@ def test_fetch_commits_basic(monkeypatch):
 def test_fetch_commits_limit(monkeypatch):
     # More commits than max_commits
     # TODO： Test that fetch_commits respects the max_commits limit.
+    now = datetime.now()
     commits = []
     for i in range(5):
-        commits.append(DummyCommit(f"sha[i]", f"user{i}", f"bwm{i}@rit.edu", datetime.now()+i, f"Commit_message{i}"))
+        commits.append(DummyCommit(f"sha{i}", f"user{i}", f"bwm{i}@rit.edu", now - timedelta(hours=i), f"Commit_message{i}"))
     gh_instance._repo = DummyRepo(commits, [])
     df = fetch_commits("any/repo", max_commits=2)
 
