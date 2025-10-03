@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import pytest
 from datetime import datetime, timedelta
-from src.repo_miner import fetch_commits#, fetch_issues, merge_and_summarize
+from src.repo_miner import fetch_commits, fetch_issues#, merge_and_summarize
 
 # --- Helpers for dummy GitHub API objects ---
 
@@ -108,3 +108,43 @@ def test_fetch_commits_empty(monkeypatch):
     df = fetch_commits("any/repo")
     assert list(df.columns) == ["sha", "author", "email", "date", "message"]
     assert len(df) == 0
+
+def test_fetch_issues_basic(monkeypatch):
+    now = datetime.now()
+    issues = [
+        DummyIssue(1, 101, "Issue A", "alice", "open", now, None, 0),
+        DummyIssue(2, 102, "Issue B", "bob", "closed", now - timedelta(days=2), now, 2)
+    ]
+    gh_instance._repo = DummyRepo([], issues)
+    df = fetch_issues("any/repo", state="all")
+    assert {"id", "number", "title", "user", "state", "created_at", "closed_at", "comments"}.issubset(df.columns)
+    assert len(df) == 2
+    issue_open = df[df["id"] == 1].iloc[0]
+    assert isinstance(issue_open["created_at"], str)
+    assert issue_open["created_at"][:6] == "2025-1"         # check the first few characters of the created_at string to check format
+
+def test_fetch_issues_no_prs(monkeypatch):
+    now = datetime.now()
+    issues = [
+        DummyIssue(1, 101, "Issue A", "alice", "open", now, None, 0, is_pr=False),
+        DummyIssue(2, 102, "Issue B", "bob", "closed", now - timedelta(days=2), now, 2, is_pr=False),
+        DummyIssue(3, 103, "Pull Request", "carl", "closed", now - timedelta(days=3), now, 0, is_pr=True),
+    ]
+    gh_instance._repo = DummyRepo([], issues)
+    df = fetch_issues("any/repo", state="all", max_issues=None)
+    assert len(df) == 2
+    assert set(df["id"]) == {1, 2}
+
+def test_fetch_issues_calculate_duration(monkeypatch):
+    now = datetime.now()
+    before_now = now - timedelta(days=5, hours = 11)
+    issues = [
+        DummyIssue(1, 101, "Duration Check", "alice", "closed", before_now, now, 0, is_pr=False),
+        DummyIssue(2, 102, "Duration Ongoing", "bob", "open", now - timedelta(days=2), None, 2, is_pr=False),
+    ]
+    gh_instance._repo = DummyRepo([], issues)
+    df = fetch_issues("any/repo", state="all", max_issues=None)
+    closed_output = df[df["id"] == 1].iloc[0]               # note - looked up how to get the data I wanted - said to use .iloc
+    open_output = df[df["id"] == 2].iloc[0]
+    assert closed_output["open_duration_days"] == 5
+    assert pd.isna(open_output["open_duration_days"])
