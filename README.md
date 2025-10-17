@@ -18,4 +18,11 @@ RM2 (Issue Fetcher)
     Skips pull requests and normalizes to ISO dates
     CLI interface fetch_issues
     Unit tests with Pytest and dummy objects
+
+RM3 (Merge and Summarize Commits and Issues)
+    Implemented merge_and_summarize(commits_df: pd.DataFrame, issues_df: pd.DataFrame)
+    Prints top committers, issue close rate, and average issue open duration
+    CLI interface merge_and_summarize
+    Added given unit test
+    Usage: python -m src.repo_miner summarize --commits commits.csv --issues issues.csv
     
